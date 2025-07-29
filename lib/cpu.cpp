@@ -329,8 +329,22 @@ bool CPU::step() {
         fetch_data();
         printf("0x%02X(%s)", cur_opcode, curr_inst ? inst_name(curr_inst->type) : "UNK");
         execute();
-        printf("%*sA:%02X BC:%02X%02X DE:%02X%02X HL:%02X%02X SP:%04X\n", 
-               20, "", regs.a, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp);
+        
+        // Get flag states
+        bool z_flag = get_flag(FLAG_Z);
+        bool n_flag = get_flag(FLAG_N);
+        bool h_flag = get_flag(FLAG_H);
+        bool c_flag = get_flag(FLAG_C);
+        
+        printf("%*sA:%02X BC:%02X%02X DE:%02X%02X HL:%02X%02X SP:%04X F:%02X[%c%c%c%c]\n", 
+               20, "", regs.a, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp, 
+               regs.f, z_flag ? 'Z' : '-', n_flag ? 'N' : '-', h_flag ? 'H' : '-', c_flag ? 'C' : '-');
+        
+        // Stop after 10 steps
+        if (instruction_count >= 100) {
+            printf("CPU: Stopped after 10 steps\n");
+            return false;  // Stop running instructions
+        }
     }
     return true;  // Continue running instructions
 } 
@@ -370,20 +384,22 @@ void CPU::stack_push(u8 value) {
 }
 
 void CPU::stack_push16(u16 value) {
-    regs.sp--;
-    bus->write(regs.sp, value & 0xFF);
-    bus->write(regs.sp + 1, (value >> 8) & 0xFF);
+    stack_push((value >> 8) & 0xFF);
+    stack_push(value & 0xFF);
 }
 
-u16 CPU::stack_pop() {
+u8 CPU::stack_pop() {
     return bus->read(regs.sp++);
 }
 
-u8 CPU::stack_pop16() {
-    u16 value = bus->read(regs.sp) | (bus->read(regs.sp + 1) << 8);
-    regs.sp += 2;
-    return value;
+u16 CPU::stack_pop16() {
+    u8 lo = stack_pop();
+    u8 hi = stack_pop();
+    return (hi << 8) | lo;  // Combine high and low bytes
 }
+
 u16 CPU::stack_peek() {
-    return bus->read(regs.sp) | (bus->read(regs.sp + 1) << 8);
+    u8 lo = bus->read(regs.sp);
+    u8 hi = bus->read(regs.sp + 1);
+    return (hi << 8) | lo;
 }

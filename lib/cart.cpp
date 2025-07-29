@@ -171,7 +171,7 @@ bool Cartridge::load(const char* cart) {
 } 
 
 u8 Cartridge::read(u16 address) {
-    if (address < 8000) {
+    if (address < 0x8000) {
         return rom_data[address];
     }
     return 0;
@@ -179,7 +179,7 @@ u8 Cartridge::read(u16 address) {
 
 void Cartridge::write(u16 address, u8 value) {
     // Implement memory write logic
-    if (address < 8000) {
+    if (address < 0x8000) {
         rom_data[address] = value;
     }
 }

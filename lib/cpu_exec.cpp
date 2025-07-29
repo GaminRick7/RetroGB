@@ -5,6 +5,12 @@
 
 using InstrFunc = void (*)(CPU* cpu, const Instruction* inst);
 
+// Helper function to check if register is 16-bit
+static bool is_16_bit(RegType reg) {
+    return (reg == RegType::SP || reg == RegType::BC || 
+            reg == RegType::DE || reg == RegType::HL);
+}
+
 // Generic condition checker
 static bool check_condition(CPU* cpu, CondType cond) {
     switch (cond) {
@@ -82,6 +88,11 @@ static void proc_call(CPU* cpu, const Instruction* inst) {
 }
 
 static void proc_ret(CPU* cpu, const Instruction* inst) {
+    // RET: 4 cycles (unconditional) or 5 cycles (conditional, if condition met)
+    // Base cycle for all RET instructions
+    cpu->emu_cycles(1);
+    
+    // For conditional RET, add 1 extra cycle if condition is met
     if (inst->cond != CondType::NONE) {
         cpu->emu_cycles(1);
     }
@@ -135,10 +146,9 @@ static void proc_inc(CPU* cpu, const Instruction* inst) {
         u8 value = cpu->bus->read(addr);
         u8 result = value + 1;
         
-        // Set flags
-        cpu->set_flag(FLAG_Z, result == 0);
-        cpu->set_flag(FLAG_N, false);  // Addition
-        cpu->set_flag(FLAG_H, (value & 0x0F) == 0x0F);  // Half-carry
+        // Set flags: Z=result==0, N=0, H=half-carry
+        bool half_carry = (value & 0x0F) == 0x0F;
+        cpu->set_flags(result == 0, 0, half_carry, 0);
         
         cpu->bus->write(addr, result);
         cpu->emu_cycles(3); // Memory read + write + increment
@@ -156,10 +166,9 @@ static void proc_inc(CPU* cpu, const Instruction* inst) {
             // 8-bit increment
             u8 result = (value & 0xFF) + 1;
             
-            // Set flags
-            cpu->set_flag(FLAG_Z, result == 0);
-            cpu->set_flag(FLAG_N, false);  // Addition
-            cpu->set_flag(FLAG_H, (value & 0x0F) == 0x0F);  // Half-carry
+            // Set flags: Z=result==0, N=0, H=half-carry
+            bool half_carry = (value & 0x0F) == 0x0F;
+            cpu->set_flags(result == 0, 0, half_carry, 0);
             
             cpu->cpu_set_reg(inst->reg_1, result);
             cpu->emu_cycles(1);
@@ -174,10 +183,9 @@ static void proc_dec(CPU* cpu, const Instruction* inst) {
         u8 value = cpu->bus->read(addr);
         u8 result = value - 1;
         
-        // Set flags
-        cpu->set_flag(FLAG_Z, result == 0);
-        cpu->set_flag(FLAG_N, true);   // Subtraction
-        cpu->set_flag(FLAG_H, (value & 0x0F) == 0x00);  // Half-borrow
+        // Set flags: Z=result==0, N=1, H=half-borrow
+        bool half_borrow = (value & 0x0F) == 0x00;
+        cpu->set_flags(result == 0, 1, half_borrow, 0);
         
         cpu->bus->write(addr, result);
         cpu->emu_cycles(3); // Memory read + write + decrement
@@ -195,16 +203,87 @@ static void proc_dec(CPU* cpu, const Instruction* inst) {
             // 8-bit decrement
             u8 result = (value & 0xFF) - 1;
             
-            // Set flags
-            cpu->set_flag(FLAG_Z, result == 0);
-            cpu->set_flag(FLAG_N, true);   // Subtraction
-            cpu->set_flag(FLAG_H, (value & 0x0F) == 0x00);  // Half-borrow
+            // Set flags: Z=result==0, N=1, H=half-borrow
+            bool half_borrow = (value & 0x0F) == 0x00;
+            cpu->set_flags(result == 0, 1, half_borrow, 0);
             
             cpu->cpu_set_reg(inst->reg_1, result);
             cpu->emu_cycles(1);
         }
     }
 }
+
+static void proc_sub(CPU* cpu, const Instruction* inst) {
+    u16 val = cpu->cpu_read_reg(inst->reg_1) - cpu->fetched_data;
+
+    int z = val == 0;
+    int h = ((int)cpu->cpu_read_reg(inst->reg_1) & 0xF) - ((int)cpu->fetched_data & 0xF) < 0;
+    int c = ((int)cpu->cpu_read_reg(inst->reg_1)) - ((int)cpu->fetched_data) < 0;
+
+    cpu->cpu_set_reg(inst->reg_1, val);
+    cpu->set_flags(z, 1, h, c);
+}
+
+static void proc_sbc(CPU* cpu, const Instruction* inst) {
+    u8 val = cpu->fetched_data + cpu->get_flag(FLAG_C);
+
+    int z = cpu->cpu_read_reg(inst->reg_1) - val == 0;
+
+    int h = ((int)cpu->cpu_read_reg(inst->reg_1) & 0xF) 
+        - ((int)cpu->fetched_data & 0xF) - ((int)cpu->get_flag(FLAG_C)) < 0;
+    int c = ((int)cpu->cpu_read_reg(inst->reg_1)) 
+        - ((int)cpu->fetched_data) - ((int)cpu->get_flag(FLAG_C)) < 0;
+
+    cpu->cpu_set_reg(inst->reg_1, cpu->cpu_read_reg(inst->reg_1) - val);
+    cpu->set_flags(z, 1, h, c);
+}
+
+static void proc_adc(CPU* cpu, const Instruction* inst) {
+    u16 u = cpu->fetched_data;
+    u16 a = cpu->regs.a;
+    u16 c = cpu->get_flag(FLAG_C);
+
+    cpu->regs.a = (a + u + c) & 0xFF;
+
+    cpu->set_flags(cpu->regs.a == 0, 0, 
+        (a & 0xF) + (u & 0xF) + c > 0xF,
+        a + u + c > 0xFF);
+}
+
+static void proc_add(CPU* cpu, const Instruction* inst) {
+    u32 val = cpu->cpu_read_reg(inst->reg_1) + cpu->fetched_data;
+
+    bool is_16bit = is_16_bit(inst->reg_1);
+
+    if (is_16bit) {
+        cpu->emu_cycles(1);
+    }
+
+    if (inst->reg_1 == RegType::SP) {
+        val = cpu->cpu_read_reg(inst->reg_1) + (char)cpu->fetched_data;
+    }
+
+    int z = (val & 0xFF) == 0;
+    int h = (cpu->cpu_read_reg(inst->reg_1) & 0xF) + (cpu->fetched_data & 0xF) >= 0x10;
+    int c = (int)(cpu->cpu_read_reg(inst->reg_1) & 0xFF) + (int)(cpu->fetched_data & 0xFF) >= 0x100;
+
+    if (is_16bit) {
+        z = -1;
+        h = (cpu->cpu_read_reg(inst->reg_1) & 0xFFF) + (cpu->fetched_data & 0xFFF) >= 0x1000;
+        u32 n = ((u32)cpu->cpu_read_reg(inst->reg_1)) + ((u32)cpu->fetched_data);
+        c = n >= 0x10000;
+    }
+
+    if (inst->reg_1 == RegType::SP) {
+        z = 0;
+        h = (cpu->cpu_read_reg(inst->reg_1) & 0xF) + (cpu->fetched_data & 0xF) >= 0x10;
+        c = (int)(cpu->cpu_read_reg(inst->reg_1) & 0xFF) + (int)(cpu->fetched_data & 0xFF) > 0x100;
+    }
+
+    cpu->cpu_set_reg(inst->reg_1, val & 0xFFFF);
+    cpu->set_flags(z, 0, h, c);
+}
+
 
 static void proc_jr(CPU* cpu, const Instruction* inst) {
     char rel = (char)(cpu->fetched_data & 0xFF);
@@ -265,7 +344,11 @@ static std::unordered_map<InType, InstrFunc> processors = {
     {InType::RETI, proc_reti},
     {InType::RST,  proc_rst},
     {InType::INC,  proc_inc},
-    {InType::DEC,  proc_dec}
+    {InType::DEC,  proc_dec},
+    {InType::ADD,  proc_add},
+    {InType::ADC,  proc_adc},
+    {InType::SUB,  proc_sub},
+    {InType::SBC,  proc_sbc}
 };
 
 InstrFunc inst_get_processor(InType type) {

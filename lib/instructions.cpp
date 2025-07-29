@@ -147,8 +147,8 @@ static void init_instruction_table() {
     // // 0x08 - LD (a16), SP
     instruction_table[0x08] = {InType::LD, AddrMode::A16_R, RegType::NONE, RegType::SP, CondType::NONE, 0};
     
-    // // 0x09 - ADD HL, BC
-    // instruction_table[0x09] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::BC, CondType::NONE, 0};
+    // 0x09 - ADD HL, BC
+    instruction_table[0x09] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::BC, CondType::NONE, 0};
     
     // // 0x0A - LD A, (BC)
     instruction_table[0x0A] = {InType::LD, AddrMode::R_MR, RegType::A, RegType::BC, CondType::NONE, 0};
@@ -186,8 +186,8 @@ static void init_instruction_table() {
     // // 0x18 - JR r8
     // instruction_table[0x18] = {InType::JR, AddrMode::D8, RegType::NONE, RegType::NONE, CondType::NONE, 0};
     
-    // // 0x19 - ADD HL, DE
-    // instruction_table[0x19] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::DE, CondType::NONE, 0};
+    // 0x19 - ADD HL, DE
+    instruction_table[0x19] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::DE, CondType::NONE, 0};
     
     // // 0x1A - LD A, (DE)
     instruction_table[0x1A] = {InType::LD, AddrMode::R_MR, RegType::A, RegType::DE, CondType::NONE, 0};
@@ -234,8 +234,8 @@ static void init_instruction_table() {
     // // 0x28 - JR Z, r8
     // instruction_table[0x28] = {InType::JR, AddrMode::D8, RegType::NONE, RegType::NONE, CondType::Z, 0};
     
-    // // 0x29 - ADD HL, HL
-    // instruction_table[0x29] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::HL, CondType::NONE, 0};
+    // 0x29 - ADD HL, HL
+    instruction_table[0x29] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::HL, CondType::NONE, 0};
     
     // // 0x2A - LD A, (HL+)
     instruction_table[0x2A] = {InType::LD, AddrMode::R_HLI, RegType::A, RegType::HL, CondType::NONE, 0};
@@ -282,8 +282,8 @@ static void init_instruction_table() {
     // // 0x38 - JR C, r8
     // instruction_table[0x38] = {InType::JR, AddrMode::D8, RegType::NONE, RegType::NONE, CondType::C, 0};
     
-    // // 0x39 - ADD HL, SP
-    // instruction_table[0x39] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::SP, CondType::NONE, 0};
+    // 0x39 - ADD HL, SP
+    instruction_table[0x39] = {InType::ADD, AddrMode::R_R, RegType::HL, RegType::SP, CondType::NONE, 0};
     
     // // 0x3A - LD A, (HL-)
     instruction_table[0x3A] = {InType::LD, AddrMode::R_HLD, RegType::A, RegType::HL, CondType::NONE, 0};
@@ -329,23 +329,105 @@ static void init_instruction_table() {
     instruction_table[0xFA] = {InType::LD, AddrMode::R_A16, RegType::A, RegType::NONE, CondType::NONE, 0},
 
     // 0xA8 - XOR B
-    instruction_table[0xA8] = {InType::XOR, AddrMode::R, RegType::B, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xA8] = {InType::XOR, AddrMode::R, RegType::B, RegType::NONE, CondType::NONE, 0};
     // 0xA9 - XOR C
-    instruction_table[0xA9] = {InType::XOR, AddrMode::R, RegType::C, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xA9] = {InType::XOR, AddrMode::R, RegType::C, RegType::NONE, CondType::NONE, 0};
     // 0xAA - XOR D
-    instruction_table[0xAA] = {InType::XOR, AddrMode::R, RegType::D, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xAA] = {InType::XOR, AddrMode::R, RegType::D, RegType::NONE, CondType::NONE, 0};
     // 0xAB - XOR E
-    instruction_table[0xAB] = {InType::XOR, AddrMode::R, RegType::E, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xAB] = {InType::XOR, AddrMode::R, RegType::E, RegType::NONE, CondType::NONE, 0};
     // 0xAC - XOR H
-    instruction_table[0xAC] = {InType::XOR, AddrMode::R, RegType::H, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xAC] = {InType::XOR, AddrMode::R, RegType::H, RegType::NONE, CondType::NONE, 0};
     // 0xAD - XOR L
-    instruction_table[0xAD] = {InType::XOR, AddrMode::R, RegType::L, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xAD] = {InType::XOR, AddrMode::R, RegType::L, RegType::NONE, CondType::NONE, 0};
     // 0xAE - XOR (HL)
-    instruction_table[0xAE] = {InType::XOR, AddrMode::MR, RegType::NONE, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xAE] = {InType::XOR, AddrMode::MR, RegType::NONE, RegType::NONE, CondType::NONE, 0};
     // 0xAF - XOR A
     instruction_table[0xAF] = {InType::XOR, AddrMode::R, RegType::A, RegType::NONE, CondType::NONE, 0};
     // 0xEE - XOR d8
-    instruction_table[0xEE] = {InType::XOR, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
+    // instruction_table[0xEE] = {InType::XOR, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
+
+    // ADD instructions (8-bit)
+    // 0x80 - ADD A, B
+    instruction_table[0x80] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::B, CondType::NONE, 0};
+    // 0x81 - ADD A, C
+    instruction_table[0x81] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::C, CondType::NONE, 0};
+    // 0x82 - ADD A, D
+    instruction_table[0x82] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::D, CondType::NONE, 0};
+    // 0x83 - ADD A, E
+    instruction_table[0x83] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::E, CondType::NONE, 0};
+    // 0x84 - ADD A, H
+    instruction_table[0x84] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::H, CondType::NONE, 0};
+    // 0x85 - ADD A, L
+    instruction_table[0x85] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::L, CondType::NONE, 0};
+    // 0x86 - ADD A, (HL)
+    instruction_table[0x86] = {InType::ADD, AddrMode::MR, RegType::A, RegType::HL, CondType::NONE, 0};
+    // 0x87 - ADD A, A
+    instruction_table[0x87] = {InType::ADD, AddrMode::R_R, RegType::A, RegType::A, CondType::NONE, 0};
+    // 0xC6 - ADD A, d8
+    instruction_table[0xC6] = {InType::ADD, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
+    // 0xE8 - ADD SP, e8
+    instruction_table[0xE8] = {InType::ADD, AddrMode::D8, RegType::SP, RegType::NONE, CondType::NONE, 0};
+
+    // ADC instructions (8-bit)
+    // 0x88 - ADC A, B
+    instruction_table[0x88] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::B, CondType::NONE, 0};
+    // 0x89 - ADC A, C
+    instruction_table[0x89] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::C, CondType::NONE, 0};
+    // 0x8A - ADC A, D
+    instruction_table[0x8A] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::D, CondType::NONE, 0};
+    // 0x8B - ADC A, E
+    instruction_table[0x8B] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::E, CondType::NONE, 0};
+    // 0x8C - ADC A, H
+    instruction_table[0x8C] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::H, CondType::NONE, 0};
+    // 0x8D - ADC A, L
+    instruction_table[0x8D] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::L, CondType::NONE, 0};
+    // 0x8E - ADC A, (HL)
+    instruction_table[0x8E] = {InType::ADC, AddrMode::MR, RegType::A, RegType::HL, CondType::NONE, 0};
+    // 0x8F - ADC A, A
+    instruction_table[0x8F] = {InType::ADC, AddrMode::R_R, RegType::A, RegType::A, CondType::NONE, 0};
+    // 0xCE - ADC A, d8
+    instruction_table[0xCE] = {InType::ADC, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
+
+    // SUB instructions (8-bit)
+    // 0x90 - SUB A, B
+    instruction_table[0x90] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::B, CondType::NONE, 0};
+    // 0x91 - SUB A, C
+    instruction_table[0x91] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::C, CondType::NONE, 0};
+    // 0x92 - SUB A, D
+    instruction_table[0x92] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::D, CondType::NONE, 0};
+    // 0x93 - SUB A, E
+    instruction_table[0x93] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::E, CondType::NONE, 0};
+    // 0x94 - SUB A, H
+    instruction_table[0x94] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::H, CondType::NONE, 0};
+    // 0x95 - SUB A, L
+    instruction_table[0x95] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::L, CondType::NONE, 0};
+    // 0x96 - SUB A, (HL)
+    instruction_table[0x96] = {InType::SUB, AddrMode::MR, RegType::A, RegType::HL, CondType::NONE, 0};
+    // 0x97 - SUB A, A
+    instruction_table[0x97] = {InType::SUB, AddrMode::R_R, RegType::A, RegType::A, CondType::NONE, 0};
+    // 0xD6 - SUB A, d8
+    instruction_table[0xD6] = {InType::SUB, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
+
+    // SBC instructions (8-bit)
+    // 0x98 - SBC A, B
+    instruction_table[0x98] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::B, CondType::NONE, 0};
+    // 0x99 - SBC A, C
+    instruction_table[0x99] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::C, CondType::NONE, 0};
+    // 0x9A - SBC A, D
+    instruction_table[0x9A] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::D, CondType::NONE, 0};
+    // 0x9B - SBC A, E
+    instruction_table[0x9B] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::E, CondType::NONE, 0};
+    // 0x9C - SBC A, H
+    instruction_table[0x9C] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::H, CondType::NONE, 0};
+    // 0x9D - SBC A, L
+    instruction_table[0x9D] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::L, CondType::NONE, 0};
+    // 0x9E - SBC A, (HL)
+    instruction_table[0x9E] = {InType::SBC, AddrMode::MR, RegType::A, RegType::HL, CondType::NONE, 0};
+    // 0x9F - SBC A, A
+    instruction_table[0x9F] = {InType::SBC, AddrMode::R_R, RegType::A, RegType::A, CondType::NONE, 0};
+    // 0xDE - SBC A, d8
+    instruction_table[0xDE] = {InType::SBC, AddrMode::R_D8, RegType::A, RegType::NONE, CondType::NONE, 0};
 
     // POP instructions
     // 0xC1 - POP BC

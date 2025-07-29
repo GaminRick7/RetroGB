@@ -29,7 +29,7 @@ void Bus::set_cpu(CPU* cpu) {
 }
 
 u8 Bus::read(u16 address) {
-    if (address < 8000) {
+    if (address < 0x8000) {
         return cartridge->read(address);
     }
     else if (address >= 0xC000 && address <= 0xDFFF) {
@@ -45,7 +45,7 @@ u8 Bus::read(u16 address) {
 
 void Bus::write(u16 address, u8 value) {
     // Implement memory write logic
-    if (address < 8000) {
+    if (address < 0x8000) {
         cartridge->write(address, value);
     }
     else if (address >= 0xC000 && address <= 0xDFFF) {
