@@ -16,4 +16,16 @@ using u64 = uint64_t;
 
 #define BETWEEN(a, b, c) ((a >= b) && (a <= c))
 
+constexpr uint8_t FLAG_Z = 1 << 7; // Zero
+constexpr uint8_t FLAG_N = 1 << 6; // Subtract
+constexpr uint8_t FLAG_H = 1 << 5; // Half-Carry
+constexpr uint8_t FLAG_C = 1 << 4; // Carry
+
+// Interrupt types
+constexpr uint8_t IT_VBLANK = 1 << 0;
+constexpr uint8_t IT_LCD_STAT = 1 << 1;
+constexpr uint8_t IT_TIMER = 1 << 2;
+constexpr uint8_t IT_SERIAL = 1 << 3;
+constexpr uint8_t IT_JOYPAD = 1 << 4;
+
 void delay(u32 ms); 

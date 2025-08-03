@@ -75,6 +75,11 @@ if(WIN32)
 
   string(STRIP "${SDL2_TTF_LIBRARIES}" SDL2_TTF_LIBRARIES)
 else()
+  # Set SDL2_PATH to point to Homebrew installation
+  set(SDL2_PATH "/opt/homebrew/Cellar/sdl2/2.32.6")
+  set(SDL2_TTF_PATH "/opt/homebrew/Cellar/sdl2_ttf/2.24.0")
+  
+  # Use the custom SDL2 find modules
   list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/sdl2)
   find_package(SDL2 REQUIRED)
   find_package(SDL2_ttf REQUIRED)

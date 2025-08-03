@@ -2,6 +2,126 @@
 #include "bus.hpp"
 #include "cpu_exec.cpp"
 #include <cstdio>
+#include <cstring>
+
+// Helper function to get register name as string
+static const char* reg_name(RegType reg) {
+    switch (reg) {
+        case RegType::A: return "A";
+        case RegType::B: return "B";
+        case RegType::C: return "C";
+        case RegType::D: return "D";
+        case RegType::E: return "E";
+        case RegType::H: return "H";
+        case RegType::L: return "L";
+        case RegType::F: return "F";
+        case RegType::AF: return "AF";
+        case RegType::BC: return "BC";
+        case RegType::DE: return "DE";
+        case RegType::HL: return "HL";
+        case RegType::SP: return "SP";
+        case RegType::PC: return "PC";
+        case RegType::NONE: return "";
+        default: return "?";
+    }
+}
+
+// Helper function to get condition name as string
+static const char* cond_name(CondType cond) {
+    switch (cond) {
+        case CondType::NZ: return "NZ";
+        case CondType::Z: return "Z";
+        case CondType::NC: return "NC";
+        case CondType::C: return "C";
+        case CondType::NONE: return "";
+        default: return "?";
+    }
+}
+
+// Helper function to format operand based on addressing mode and instruction
+static void format_operand(const Instruction* inst, u16 fetched_data, u16 mem_dest, char* buffer, size_t buffer_size) {
+    switch (inst->mode) {
+        case AddrMode::IMP:
+            // Special handling for POP and PUSH instructions
+            if (inst->type == InType::POP || inst->type == InType::PUSH) {
+                snprintf(buffer, buffer_size, "%s", reg_name(inst->reg_1));
+            } else {
+                snprintf(buffer, buffer_size, "");
+            }
+            break;
+        case AddrMode::R:
+            snprintf(buffer, buffer_size, "%s", reg_name(inst->reg_1));
+            break;
+        case AddrMode::R_R:
+            snprintf(buffer, buffer_size, "%s,%s", reg_name(inst->reg_1), reg_name(inst->reg_2));
+            break;
+        case AddrMode::R_D8:
+            snprintf(buffer, buffer_size, "%s,$%02X", reg_name(inst->reg_1), fetched_data);
+            break;
+        case AddrMode::R_D16:
+            snprintf(buffer, buffer_size, "%s,$%04X", reg_name(inst->reg_1), fetched_data);
+            break;
+        case AddrMode::MR_R:
+            if (inst->reg_1 == RegType::C) {
+                snprintf(buffer, buffer_size, "($FF00+C),%s", reg_name(inst->reg_2));
+            } else {
+                snprintf(buffer, buffer_size, "(%s),%s", reg_name(inst->reg_1), reg_name(inst->reg_2));
+            }
+            break;
+        case AddrMode::R_MR:
+            if (inst->reg_1 == RegType::C) {
+                snprintf(buffer, buffer_size, "%s,($FF00+C)", reg_name(inst->reg_2));
+            } else {
+                snprintf(buffer, buffer_size, "%s,(%s)", reg_name(inst->reg_1), reg_name(inst->reg_2));
+            }
+            break;
+        case AddrMode::R_HLI:
+            snprintf(buffer, buffer_size, "%s,(HL+)", reg_name(inst->reg_1));
+            break;
+        case AddrMode::R_HLD:
+            snprintf(buffer, buffer_size, "%s,(HL-)", reg_name(inst->reg_1));
+            break;
+        case AddrMode::HLI_R:
+            snprintf(buffer, buffer_size, "(HL+),%s", reg_name(inst->reg_2));
+            break;
+        case AddrMode::HLD_R:
+            snprintf(buffer, buffer_size, "(HL-),%s", reg_name(inst->reg_2));
+            break;
+        case AddrMode::R_A8:
+            snprintf(buffer, buffer_size, "%s,($FF00+$%02X)", reg_name(inst->reg_1), fetched_data);
+            break;
+        case AddrMode::A8_R:
+            snprintf(buffer, buffer_size, "($%04X),%s", mem_dest, reg_name(inst->reg_2));
+            break;
+        case AddrMode::HL_SPR:
+            snprintf(buffer, buffer_size, "HL,SP+%d", (int8_t)fetched_data);
+            break;
+        case AddrMode::D8:
+            snprintf(buffer, buffer_size, "$%02X", fetched_data);
+            break;
+        case AddrMode::D16:
+            snprintf(buffer, buffer_size, "$%04X", fetched_data);
+            break;
+        case AddrMode::D16_R:
+            snprintf(buffer, buffer_size, "($%04X),%s", fetched_data, reg_name(inst->reg_2));
+            break;
+        case AddrMode::MR_D8:
+            snprintf(buffer, buffer_size, "(%s),$%02X", reg_name(inst->reg_1), fetched_data);
+            break;
+        case AddrMode::MR:
+            snprintf(buffer, buffer_size, "(%s)", reg_name(inst->reg_1));
+            break;
+        case AddrMode::A16_R:
+            snprintf(buffer, buffer_size, "($%04X),%s", fetched_data, reg_name(inst->reg_2));
+            break;
+        case AddrMode::R_A16:
+            snprintf(buffer, buffer_size, "%s,($%04X)", reg_name(inst->reg_1), fetched_data);
+            break;
+        default:
+            snprintf(buffer, buffer_size, "?");
+            break;
+    }
+}
 
 CPU::CPU() : bus(nullptr) {
     // Initialize CPU state
@@ -12,17 +132,22 @@ CPU::~CPU() {
 }
 
 void CPU::init() {
-    // Initialize CPU registers and state
+    // Initialize CPU registers and state according to Gameboy Doctor requirements
     regs.pc = 0x0100;  // Start at the beginning of game code (after header)
     regs.sp = 0xFFFE;  // Stack pointer at top of high RAM
-    regs.a = 0x01;
-    regs.f = 0x00;
-    regs.b = 0x00;
-    regs.c = 0x00;
-    regs.d = 0x00;
-    regs.e = 0x00;
-    regs.h = 0x00;
-    regs.l = 0x00;
+    regs.a  = 0x01;
+    regs.f  = 0xB0;
+    regs.b  = 0x00;
+    regs.c  = 0x13;
+    regs.d  = 0x00;
+    regs.e  = 0xD8;
+    regs.h  = 0x01;
+    regs.l  = 0x4D;
+    int_flags = 0;
+    ie_register = 0;
+    ime = false;
+    enabling_ime = false;
+    ticks = 0;
     
     // Initialize CPU state
     halted = false;
@@ -75,10 +200,15 @@ void CPU::fetch_data() {
             return;}
         case AddrMode::D16:
         case AddrMode::R_D16:{
-            fetched_data = bus->read(regs.pc);
-            fetched_data |= bus->read(regs.pc+1) << 8;
-            emu_cycles(2);
-            regs.pc +=2;
+            u16 lo = bus->read(regs.pc);
+            emu_cycles(1);
+
+            u16 hi = bus->read(regs.pc + 1);
+            emu_cycles(1);
+
+            fetched_data = lo | (hi << 8);
+
+            regs.pc += 2;
             return;}
         case AddrMode::R_R:{
             fetched_data = cpu_read_reg(curr_inst->reg_2);
@@ -95,9 +225,9 @@ void CPU::fetch_data() {
             }
             return;}
         case AddrMode::R_MR:{
-            u16 addr = cpu_read_reg(RegType::HL);
+            u16 addr = cpu_read_reg(curr_inst->reg_2);
 
-            if (curr_inst->reg_1 == RegType::C){
+            if (curr_inst->reg_2 == RegType::C){
                 addr |= 0xFF00;
             } 
             fetched_data = bus->read(addr);
@@ -148,40 +278,45 @@ void CPU::fetch_data() {
         }
         case AddrMode::R_A8: {
             fetched_data = bus->read(regs.pc);
-            regs.pc++;
             emu_cycles(1);
+            regs.pc++;
             return;
         }
         case AddrMode::A8_R: {
             mem_dest = 0xFF00 | bus->read(regs.pc);
+            emu_cycles(1);
             regs.pc++;
             fetched_data = cpu_read_reg(curr_inst->reg_2);
             dest_is_mem = true;
-            emu_cycles(1);
             return;
         }
         case AddrMode::HL_SPR: {
             fetched_data = bus->read(regs.pc);
-            regs.pc++;
             emu_cycles(1);
+            regs.pc++;
             return;
         }
         case AddrMode::A16_R:
         case AddrMode::D16_R: {
-            u16 addr = bus->read(regs.pc) | (bus->read(regs.pc + 1) << 8);
-            regs.pc += 2;
-            mem_dest = addr;
-            fetched_data = cpu_read_reg(curr_inst->reg_2);
+            u16 lo = bus->read(regs.pc);
+            emu_cycles(1);
+
+            u16 hi = bus->read(regs.pc + 1);
+            emu_cycles(1);
+
+            mem_dest = lo | (hi << 8);
             dest_is_mem = true;
-            emu_cycles(2);
+
+            regs.pc += 2;
+            fetched_data = cpu_read_reg(curr_inst->reg_2);
             return;
         }
         case AddrMode::MR_D8: {
             fetched_data = bus->read(regs.pc);
+            emu_cycles(1);
             regs.pc++;
             mem_dest = cpu_read_reg(curr_inst->reg_1);
             dest_is_mem = true;
-            emu_cycles(1);
             return;
         }
         case AddrMode::MR: {
@@ -192,10 +327,17 @@ void CPU::fetch_data() {
             return;
         }
         case AddrMode::R_A16: {
-            u16 addr = bus->read(regs.pc) | (bus->read(regs.pc + 1) << 8);
+            u16 lo = bus->read(regs.pc);
+            emu_cycles(1);
+
+            u16 hi = bus->read(regs.pc + 1);
+            emu_cycles(1);
+
+            u16 addr = lo | (hi << 8);
+
             regs.pc += 2;
             fetched_data = bus->read(addr);
-            emu_cycles(2);
+            emu_cycles(1);
             return;
         }
         default:
@@ -209,6 +351,34 @@ void CPU::emu_cycles(int cycles) {
     // Empty function for cycle counting
     // This will be implemented later to track CPU cycles
     // and synchronize with other components (PPU, timer, etc.)
+
+    int n = cycles * 4;
+
+    for (int i = 0; i < n; i++) {
+        ticks++;
+        timer->tick();
+    }
+}
+
+void CPU::dbg_update() {
+    if (bus->read(0xFF02) == 0x81) {
+        char c = bus->read(0xFF01);
+
+        dbg_msg[msg_size++] = c;
+        bus->write(0xFF02, 0);
+    }
+}
+
+void CPU::dbg_print() {
+    if (dbg_msg[0]) {
+        printf("DBG: %s\n", dbg_msg);
+        
+        // Check if the debug message contains "failed"
+        if (strstr(dbg_msg, "Passed") != nullptr) {
+            printf("CPU: Debug message contains 'failed' - stopping program\n");
+            exit(1);
+        }
+    }
 }
 
 u16 CPU::cpu_read_reg(RegType reg) {
@@ -228,22 +398,16 @@ u16 CPU::cpu_read_reg(RegType reg) {
         case RegType::L:
             return regs.l;
         case RegType::AF:
-            // Return full 16-bit AF value (F << 8 | A) - little-endian
-            return (regs.f << 8) | regs.a;
+            return (regs.a << 8) | regs.f;
         case RegType::BC:
-            // Return full 16-bit BC value (C << 8 | B) - little-endian
-            return (regs.c << 8) | regs.b;
+            return (regs.b << 8) | regs.c;
         case RegType::DE:
-            // Return full 16-bit DE value (E << 8 | D) - little-endian
-            return (regs.e << 8) | regs.d;
+            return (regs.d<< 8) | regs.e;
         case RegType::HL:
-            // Return full 16-bit HL value (L << 8 | H) - little-endian
-            return (regs.l << 8) | regs.h;
+            return (regs.h << 8) | regs.l;
         case RegType::SP:
-            // Return full 16-bit SP value
             return regs.sp;
         case RegType::PC:
-            // Return full 16-bit PC value
             return regs.pc;
         case RegType::NONE:
         default:
@@ -279,20 +443,20 @@ void CPU::cpu_set_reg(RegType reg, u16 value) {
             regs.f = value & 0xFF;
             break;
         case RegType::AF:
-            regs.a = value & 0xFF;
-            regs.f = (value >> 8) & 0xFF;
+            regs.a = (value >> 8) & 0xFF;
+            regs.f = value & 0xF0;  // Clear lower nibble - flags should always be zero
             break;
         case RegType::BC:
-            regs.b = value & 0xFF;
-            regs.c = (value >> 8) & 0xFF;
+            regs.b = (value >> 8) & 0xFF;
+            regs.c = value & 0xFF;
             break;
         case RegType::DE:
-            regs.d = value & 0xFF;
-            regs.e = (value >> 8) & 0xFF;
+            regs.d = (value >> 8) & 0xFF;
+            regs.e = value & 0xFF;
             break;
         case RegType::HL:
-            regs.h = value & 0xFF;
-            regs.l = (value >> 8) & 0xFF;
+            regs.h = (value >> 8) & 0xFF;
+            regs.l = value & 0xFF;
             break;
         case RegType::SP:
             regs.sp = value;
@@ -321,30 +485,112 @@ void CPU::execute() {
 }
 
 bool CPU::step() {
-    static int instruction_count = 0;
-    if (!halted) {
-        instruction_count++;
-        printf("Step %d: PC=0x%04X ", instruction_count, regs.pc);
-        fetch_instruction();
-        fetch_data();
-        printf("0x%02X(%s)", cur_opcode, curr_inst ? inst_name(curr_inst->type) : "UNK");
-        execute();
+    
+    // Gameboy Doctor logging - log CPU state BEFORE instruction execution
+        // Only log if CPU is not halted and executed an opcode
+        if (!halted) {
+            // Read 4 bytes from PC for PCMEM
+            u8 pcmem0 = bus->read(regs.pc);
+            u8 pcmem1 = bus->read(regs.pc + 1);
+            u8 pcmem2 = bus->read(regs.pc + 2);
+            u8 pcmem3 = bus->read(regs.pc + 3);
+            
+            // Log in Gameboy Doctor format: A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD
+            // F field should be hex value of flags register (not string)
+            printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
+                    regs.a, regs.f, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp, regs.pc,
+                    pcmem0, pcmem1, pcmem2, pcmem3);
+        }
         
+        // Don't increment PC here - it should be incremented after instruction execution
+        // The PC increment logic will be handled in the instruction processors
+    
+    if (!halted) {
+        u16 pc = regs.pc;
+        fetch_instruction();
+        emu_cycles(1);
+        fetch_data();
+        
+        // Format the instruction with operands
+        char operand_buffer[64];
+        format_operand(curr_inst, fetched_data, mem_dest, operand_buffer, sizeof(operand_buffer));
+        
+        // Handle special cases for conditional instructions
+        const char* condition = "";
+        if (curr_inst->cond != CondType::NONE) {
+            condition = cond_name(curr_inst->cond);
+        }
+        
+        // Compose the instruction string into a buffer
+        char instr_buffer[128];
+        int instr_len = 0;
+        if (curr_inst->type == InType::RST) {
+            u8 rst_addr = (cur_opcode & 0x38) >> 3;
+            instr_len = snprintf(instr_buffer, sizeof(instr_buffer),
+                "Step %d: PC=0x%04X 0x%02X %s%s $%02X",
+                ticks, pc, cur_opcode, inst_name(curr_inst->type), condition, rst_addr * 8);
+        } else if (curr_inst->type == InType::JR) {
+            int8_t rel_addr = (int8_t)fetched_data;
+            u16 target_addr = regs.pc + rel_addr;
+            instr_len = snprintf(instr_buffer, sizeof(instr_buffer),
+                "Step %d: PC=0x%04X 0x%02X %s%s $%+d",
+                ticks, pc, cur_opcode, inst_name(curr_inst->type), condition, rel_addr);
+        } else if (curr_inst->type == InType::JP || curr_inst->type == InType::CALL) {
+            instr_len = snprintf(instr_buffer, sizeof(instr_buffer),
+                "Step %d: PC=0x%04X 0x%02X %s%s $%04X",
+                ticks, pc, cur_opcode, inst_name(curr_inst->type), condition, fetched_data);
+        } else if (curr_inst->type == InType::JPHL) {
+            instr_len = snprintf(instr_buffer, sizeof(instr_buffer),
+                "Step %d: PC=0x%04X 0x%02X %s (HL)",
+                ticks, pc, cur_opcode, inst_name(curr_inst->type));
+        } else {
+            instr_len = snprintf(instr_buffer, sizeof(instr_buffer),
+                "Step %d: PC=0x%04X 0x%02X %s%s %s",
+                ticks, pc, cur_opcode, inst_name(curr_inst->type), condition, operand_buffer);
+        }
+
+        // Print the instruction part
+        printf("%s", instr_buffer);
+
+        // Calculate how many spaces to print to align registers at column 40
+        int reg_column = 40;
+        if (instr_len < reg_column) {
+            for (int i = 0; i < reg_column - instr_len; ++i) putchar(' ');
+        } else {
+            putchar(' '); // Always at least one space
+        }
+
         // Get flag states
         bool z_flag = get_flag(FLAG_Z);
         bool n_flag = get_flag(FLAG_N);
         bool h_flag = get_flag(FLAG_H);
         bool c_flag = get_flag(FLAG_C);
-        
-        printf("%*sA:%02X BC:%02X%02X DE:%02X%02X HL:%02X%02X SP:%04X F:%02X[%c%c%c%c]\n", 
-               20, "", regs.a, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp, 
+
+        // Print registers
+        printf("A:%02X BC:%02X%02X DE:%02X%02X HL:%02X%02X SP:%04X F:%02X[%c%c%c%c]\n",
+               regs.a, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp,
                regs.f, z_flag ? 'Z' : '-', n_flag ? 'N' : '-', h_flag ? 'H' : '-', c_flag ? 'C' : '-');
         
-        // Stop after 10 steps
-        if (instruction_count >= 100) {
-            printf("CPU: Stopped after 10 steps\n");
-            return false;  // Stop running instructions
+        
+        dbg_update();
+        dbg_print();
+        execute();
+
+    }
+    else {
+        emu_cycles(1);
+        
+        if (int_flags) {
+            halted = false;
         }
+    }
+
+    if (ime) {
+        handle_interrupts();
+        enabling_ime = false;
+    }
+    if (enabling_ime) {
+        ime = true;
     }
     return true;  // Continue running instructions
 } 
@@ -352,10 +598,10 @@ bool CPU::step() {
 // Flag helper implementations
 
 void CPU::set_flags(u8 z, u8 n, u8 h, u8 c) {
-    set_flag(FLAG_Z, z);
-    set_flag(FLAG_N, n);
-    set_flag(FLAG_H, h);
-    set_flag(FLAG_C, c);
+    if (z != 0xFF) set_flag(FLAG_Z, z);
+    if (n != 0xFF) set_flag(FLAG_N, n);
+    if (h != 0xFF) set_flag(FLAG_H, h);
+    if (c != 0xFF) set_flag(FLAG_C, c);
 }
 
 void CPU::set_flag(u8 flag, bool value) {
@@ -402,4 +648,55 @@ u16 CPU::stack_peek() {
     u8 lo = bus->read(regs.sp);
     u8 hi = bus->read(regs.sp + 1);
     return (hi << 8) | lo;
+}
+
+void CPU::set_int_flags(u8 flags) {
+    int_flags = flags;
+}
+
+u8 CPU::get_int_flags() {
+    return int_flags;
+}
+
+void CPU::clear_int_flags() {
+    int_flags = 0;
+}
+
+void CPU::request_interrupt(u8 interrupt_type) {
+    // Set the corresponding interrupt flag
+    int_flags |= interrupt_type;
+}
+void CPU::int_handle(u16 address) {
+    stack_push16(regs.pc);
+    regs.pc = address;
+}
+
+bool CPU::int_check(u16 address, u8 interrupt_type) {
+    if (int_flags & interrupt_type && ie_register & interrupt_type) {
+        int_handle(address);
+        int_flags &= ~interrupt_type;
+        halted = false;
+        ime = false;
+        
+        // Consume cycles for interrupt handling
+        emu_cycles(5);
+        
+        return true;
+    }
+    
+    return false;
+}
+
+void CPU::handle_interrupts() {
+    if (int_check(0x40, IT_VBLANK)) {
+        
+    } else if (int_check(0x48, IT_LCD_STAT)) {
+        
+    } else if (int_check(0x50, IT_TIMER)) {
+        
+    } else if (int_check(0x58, IT_SERIAL)) {
+        
+    } else if (int_check(0x60, IT_JOYPAD)) {
+        
+    }
 }

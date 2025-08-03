@@ -1,6 +1,7 @@
 #include "bus.hpp"
 #include "cart.hpp"
 #include "cpu.hpp"
+#include "io.hpp"
 
 // 0000	3FFF	16 KiB ROM bank 00	From cartridge, usually a fixed bank
 // 4000	7FFF	16 KiB ROM Bank 01–NN	From cartridge, switchable bank via mapper (if any)
@@ -28,15 +29,40 @@ void Bus::set_cpu(CPU* cpu) {
     this->cpu = cpu;
 }
 
+void Bus::set_io(IO* io) {
+    this->io = io;
+}
+
+void Bus::set_ppu(PPU* ppu) {
+    this->ppu = ppu;
+}
+
 u8 Bus::read(u16 address) {
     if (address < 0x8000) {
         return cartridge->read(address);
     }
+    else if (address >= 0x8000 && address <= 0x9FFF) {
+        return ppu->vram_read(address);
+    }
     else if (address >= 0xC000 && address <= 0xDFFF) {
         return ram->read_wram(address);
     }
+    else if (address >= 0xFE00 && address <= 0xFE9F) {
+        return ppu->oam_read(address);
+    }
     else if (address >= 0xFF80 && address <= 0xFFFE) {
         return ram->read_hram(address);
+    }
+    else if (address >= 0xFF00 && address <= 0xFF7F) {
+        return io->io_read(address);
+    }
+    else if (address == 0xFF0F) {
+        // Interrupt Flag register (IF)
+        return cpu->get_int_flags();
+    }
+    else if (address == 0xFFFF) {
+        // Interrupt Enable register (IE)
+        return cpu->get_ie_register();
     }
     // Implement memory read logic
     printf("Reading from unimplemented address %04X\n", address);
@@ -48,11 +74,24 @@ void Bus::write(u16 address, u8 value) {
     if (address < 0x8000) {
         cartridge->write(address, value);
     }
-    else if (address >= 0xC000 && address <= 0xDFFF) {
+    else if (address >= 0x8000 && address <= 0x9FFF) {
+        ppu->vram_write(address, value);
+    }
+    else if (address >= 0xFE00 && address <= 0xFE9F) {
+        ppu->oam_write(address, value);
+    }
+     else if (address >= 0xC000 && address <= 0xDFFF) {
         ram->write_wram(address, value);
     }
     else if (address >= 0xFF80 && address <= 0xFFFE) {
         ram->write_hram(address, value);
+    }
+    else if (address >= 0xFF00 && address <= 0xFF7F) {
+        io->io_write(address, value);
+    }
+    else if (address == 0xFF0F) {
+        // Interrupt Flag register (IF)
+        cpu->set_int_flags(value);
     }
     else if (address == 0xFFFF) {
         cpu->set_ie_register(value);

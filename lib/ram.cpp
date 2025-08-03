@@ -13,6 +13,5 @@ void RAM::write_wram(u16 address, u8 value){
 }
 
 void RAM::write_hram(u16 address, u8 value){
-    printf("Writing to HRAM %04X = %02X\n", address, value);
     hram[address - 0xFF80] = value;
 }

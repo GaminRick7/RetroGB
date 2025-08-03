@@ -3,6 +3,10 @@ cmake/
 cmake-build-debug/
 gbemu/
 
+gameboy-doctor
+gameboy-doctor.py
+opcode_annotations.json
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

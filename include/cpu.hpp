@@ -3,12 +3,8 @@
 #include "common.hpp"
 #include "instructions.hpp"
 #include "bus.hpp"
+#include "timer.hpp"
 
-
-constexpr uint8_t FLAG_Z = 1 << 7; // Zero
-constexpr uint8_t FLAG_N = 1 << 6; // Subtract
-constexpr uint8_t FLAG_H = 1 << 5; // Half-Carry
-constexpr uint8_t FLAG_C = 1 << 4; // Carry
 
 class Registers {
 public:
@@ -28,20 +24,24 @@ class CPU {
 public:
 
     Bus* bus;
+    Timer* timer;
 
     u16 mem_dest;
     bool dest_is_mem;
     u8 cur_opcode;
     Instruction* curr_inst;
+    int ticks;
 
     bool halted;
     bool stopped;
     bool ime; // Interrupt Master Enable flag
+    bool enabling_ime;
     CPU();
     ~CPU();
     
     void init();
     void set_bus(Bus* b) { bus = b; }
+    void set_timer(Timer* t) { timer = t; }
     bool step();
     
     // Instruction fetching
@@ -67,6 +67,7 @@ public:
 
     u16 fetched_data;
     Registers regs;
+    u8 int_flags;
 
     // Getter and setter for IE register
     u8 get_ie_register() const;
@@ -78,6 +79,21 @@ public:
     u8 stack_pop();
     u16 stack_pop16();
     u16 stack_peek();
+
+    // Interrupt handling
+    void set_int_flags(u8 flags);
+    u8 get_int_flags();
+    void clear_int_flags();
+    void request_interrupt(u8 interrupt_type);
+    void int_handle(u16 address);
+    bool int_check(u16 address, u8 interrupt_type);
+    void handle_interrupts();
+
+    char dbg_msg[1024]= {0};
+    int msg_size=0;
+
+    void dbg_update();
+    void dbg_print();
 
 private:
     u8 ie_register;

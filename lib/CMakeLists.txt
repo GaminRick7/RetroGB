@@ -23,14 +23,35 @@ if (WIN32)
 else()
   target_include_directories(emu
           PUBLIC
-          ${SDL2_INCLUDE_DIR}
-          ${SDL2_TTF_INCLUDE_DIRS}  # Optional: define this in root CMakeLists.txt if not already
+          ${SDL2_INCLUDE_DIRS}
+          ${SDL2_TTF_INCLUDE_DIRS}
   )
   target_link_libraries(emu
           PUBLIC
-          ${SDL2_LIBRARY}
-          ${SDL2_TTF_LIBRARY}
           ${SDL2_LIBRARIES}
           ${SDL2_TTF_LIBRARIES}
   )
+  
+  # Link macOS frameworks required by SDL2
+  if(APPLE)
+    target_link_libraries(emu
+            PUBLIC
+            "-framework Cocoa"
+            "-framework IOKit"
+            "-framework CoreVideo"
+            "-framework Carbon"
+            "-framework CoreAudio"
+            "-framework AudioToolbox"
+            "-framework ForceFeedback"
+            "-framework AVFoundation"
+            "-framework GameController"
+            "-framework Metal"
+            "-framework QuartzCore"
+            "-framework CoreGraphics"
+            "-framework ApplicationServices"
+            "-framework Security"
+            "-framework SystemConfiguration"
+            "-framework CoreHaptics"
+    )
+  endif()
 endif()

@@ -1,6 +1,4 @@
 #include "common.hpp"
-#include <SDL.h>
 
-void delay(u32 ms) {
-    SDL_Delay(ms);
-} 
+// Common utility functions that don't depend on UI
+// The delay function has been moved to the UI module 
