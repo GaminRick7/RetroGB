@@ -152,6 +152,9 @@ bool Cartridge::load(const char* cart) {
     header = reinterpret_cast<RomHeader*>(rom_data + 0x100);
     header->title[15] = 0;
 
+    battery = header->type == 0x03;
+    need_save = false;
+
     printf("Cartridge Loaded:\n");
     printf("\t Title    : %s\n", header->title);
     printf("\t Type     : %2.2X (%s)\n", header->type, get_type_name());
@@ -159,6 +162,12 @@ bool Cartridge::load(const char* cart) {
     printf("\t RAM Size : %2.2X\n", header->ram_size);
     printf("\t LIC Code : %2.2X (%s)\n", header->lic_code, get_lic_name());
     printf("\t ROM Vers : %2.2X\n", header->version);
+
+    setup_banking();
+
+    if (battery) {
+        battery_load();
+    }
 
     u16 x = 0;
     for (u16 i = 0x0134; i <= 0x014C; i++) {
@@ -171,15 +180,95 @@ bool Cartridge::load(const char* cart) {
 } 
 
 u8 Cartridge::read(u16 address) {
-    if (address < 0x8000) {
+    if (address < 0x4000) {
         return rom_data[address];
     }
-    return 0;
+    else if (address >= 0x4000 && address < 0x8000) {
+        if (!is_mbc1()) {
+            return rom_data[address];
+        }
+        return rom_bank_x[address - 0x4000];
+    }
+    else if (address >= 0xA000 && address <= 0xBFFF) {
+        if (!ram_enabled) {
+            return 0xFF;
+        }
+        return ram_bank[address - 0xA000];
+    }
+    return rom_bank_x[address - 0x4000];
 }
 
 void Cartridge::write(u16 address, u8 value) {
     // Implement memory write logic
-    if (address < 0x8000) {
-        rom_data[address] = value;
+    if (address < 0x2000) {
+        ram_enabled = (value & 0x0F) == 0x0A;
     }
+    else if (address >= 0x2000 && address < 0x4000) {
+        if (value == 0) {
+            value = 1;
+        }
+        value &= 0b11111;
+        rom_bank_value = value;
+        rom_bank_x = rom_data + (rom_bank_value * 0x4000);
+    }
+    else if (address >= 0x4000 && address < 0x6000) {
+        ram_bank_value = value & 0b111;
+        if (ram_banking) {
+            if (need_save) {
+                battery_save();
+            }
+            ram_bank = ram_banks[ram_bank_value];
+        }
+    }
+    else if (address >= 0x6000 && address < 0x8000) {
+        //banking mode select
+        banking_mode = value & 0b1;
+
+        ram_banking = banking_mode == 0;
+        if (ram_banking) {
+            if (need_save) {
+                battery_save();
+            }
+            ram_bank = ram_banks[ram_bank_value];
+        }
+    }
+    else if (address >= 0xA000 && address < 0xBFFF) {
+        if (!ram_enabled) {
+            return;
+        }
+        if (!ram_bank) {
+            return;
+        }
+        ram_bank[address - 0xA000] = value;
+        if (battery) {
+            need_save = true;
+        }
+    }
+}
+
+bool Cartridge::is_mbc1() {
+    return header->type == 0x01 || header->type == 0x02 || header->type == 0x03;
+}
+
+void Cartridge::setup_banking() {
+    for (int i = 0; i < 16; i++) {
+        ram_banks[i] = nullptr;
+
+        if (header->ram_size == 2 &&  i == 0 || 
+            header->ram_size == 3 && i < 4 ||
+            header->ram_size == 4 && i < 16 ||
+            header->ram_size == 5 && i < 8) {
+            ram_banks[i] = new u8[0x2000];
+        }
+    }
+    ram_bank = ram_banks[0];
+    rom_bank_x = rom_data + 0x4000;
+}
+
+void Cartridge::battery_load() {}
+
+void Cartridge::battery_save() {}
+
+bool Cartridge::get_need_save() {
+    return need_save;
 }

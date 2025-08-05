@@ -1,6 +1,7 @@
 #include "emu.hpp"
 #include <chrono>
 #include <thread>
+#include <SDL.h>
 
 Emulator::Emulator() {
     ctx.paused = false;
@@ -71,13 +72,32 @@ int Emulator::run(int argc, char** argv) {
     bus.set_io(&io);
     io.set_timer(&timer);
     io.set_cpu(&cpu);
+    io.set_joypad(&joypad);
     timer.set_cpu(&cpu);
     bus.set_ppu(&ppu);
+    dma.set_ppu(&ppu);
+    dma.set_bus(&bus);
+    io.set_dma(&dma);
+    cpu.set_dma(&dma);
+    cpu.set_ppu(&ppu);
+    bus.set_dma(&dma);
+    io.set_lcd(&lcd);
+    lcd.set_dma(&dma);
+    ppu.set_lcd(&lcd);
+    ppu.set_cpu(&cpu);
+    ppu.set_bus(&bus);
+    ppu.set_cart(&cartridge);
+    // Set bus reference for UI
+    ui.set_bus(&bus);
+    ui.set_ppu(&ppu);
+    ui.set_joypad(&joypad);
     // Initialize UI
     if (!ui.init()) {
         printf("Failed to initialize UI\n");
         return -3;
     }
+
+    ppu.init();
 
     printf("SDL window created successfully\n");
 
@@ -91,13 +111,33 @@ int Emulator::run(int argc, char** argv) {
 
     printf("CPU thread created successfully\n");
 
-    // Wait for CPU thread to start and set running flag
-    while (!ctx.running && !ctx.die) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    u32 prev_frame = 0;
+    const int target_fps = 60;
+    const int frame_delay = 1000 / target_fps;
+    u32 last_frame_time = 0;
+
+    // Main loop - handle events and rendering
+    while (!ctx.die) {
+        u32 frame_start = SDL_GetTicks();
+        
+        // Handle events
+        if (!ui.handle_events(ctx.running, ctx.paused)) {
+            ctx.die = true;
+            break;
+        }
+        
+        // Update display if frame has changed
+        if (prev_frame != ppu.current_frame) {
+            ui.update();
+            prev_frame = ppu.current_frame;
+        }
+        
+        // Frame rate limiting
+        u32 frame_time = SDL_GetTicks() - frame_start;
+        if (frame_time < frame_delay) {
+            SDL_Delay(frame_delay - frame_time);
+        }
     }
-    
-    // Main thread handles UI rendering and events
-    ui.render_loop(ctx.running, ctx.paused);
     
     // Signal CPU thread to stop
     ctx.die = true;

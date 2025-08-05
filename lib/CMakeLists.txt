@@ -1,8 +1,18 @@
 file(GLOB sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/lib/*.cpp")
 file(GLOB headers CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/*.hpp")
 
+# Remove cpu_exec.cpp from sources since it's now split into separate files
+list(REMOVE_ITEM sources "${PROJECT_SOURCE_DIR}/lib/cpu_exec.cpp")
+
 add_library(emu STATIC ${sources} ${headers}
-        cpu_exec.cpp)
+        cpu_registers.cpp
+        cpu_stack.cpp
+        cpu_interrupts.cpp
+        cpu_instructions.cpp
+        ppu_memory.cpp
+        ppu_fifo.cpp
+        ppu_sprites.cpp
+        ppu_pipeline.cpp)
 
 target_include_directories(emu
         PUBLIC

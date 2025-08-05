@@ -2,6 +2,9 @@ build/
 cmake/
 cmake-build-debug/
 gbemu/
+truth/
+game_roms/
+portfolio_writeup.md
 
 gameboy-doctor
 gameboy-doctor.py

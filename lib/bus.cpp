@@ -2,6 +2,8 @@
 #include "cart.hpp"
 #include "cpu.hpp"
 #include "io.hpp"
+#include "ppu.hpp"
+#include "dma.hpp"
 
 // 0000	3FFF	16 KiB ROM bank 00	From cartridge, usually a fixed bank
 // 4000	7FFF	16 KiB ROM Bank 01–NN	From cartridge, switchable bank via mapper (if any)
@@ -37,6 +39,10 @@ void Bus::set_ppu(PPU* ppu) {
     this->ppu = ppu;
 }
 
+void Bus::set_dma(DMA* dma) {
+    this->dma = dma;
+}
+
 u8 Bus::read(u16 address) {
     if (address < 0x8000) {
         return cartridge->read(address);
@@ -48,6 +54,9 @@ u8 Bus::read(u16 address) {
         return ram->read_wram(address);
     }
     else if (address >= 0xFE00 && address <= 0xFE9F) {
+        if (dma->transferring()) {
+            return 0xFF;
+        }
         return ppu->oam_read(address);
     }
     else if (address >= 0xFF80 && address <= 0xFFFE) {
@@ -78,6 +87,9 @@ void Bus::write(u16 address, u8 value) {
         ppu->vram_write(address, value);
     }
     else if (address >= 0xFE00 && address <= 0xFE9F) {
+        if (dma->transferring()) {
+            return;
+        }
         ppu->oam_write(address, value);
     }
      else if (address >= 0xC000 && address <= 0xDFFF) {

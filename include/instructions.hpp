@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 
+// ===== ADDRESSING MODES =====
 enum class AddrMode {
     IMP,
     R_D16,
@@ -26,6 +27,7 @@ enum class AddrMode {
     R_A16
 };
 
+// ===== REGISTER TYPES =====
 enum class RegType {
     NONE,
     A,
@@ -44,6 +46,7 @@ enum class RegType {
     PC
 };
 
+// ===== INSTRUCTION TYPES =====
 enum class InType {
     NONE,
     NOP,
@@ -82,28 +85,31 @@ enum class InType {
     EI,
     RST,
     ERR,
-    //CB instructions...
-    RLC, 
+    
+    // CB instruction types
+    RLC,
     RRC,
-    RL, 
+    RL,
     RR,
-    SLA, 
+    SLA,
     SRA,
-    SWAP, 
+    SWAP,
     SRL,
-    BIT, 
-    RES, 
+    BIT,
+    RES,
     SET
 };
 
+// ===== CONDITION TYPES =====
 enum class CondType {
-    NONE, 
-    NZ, 
-    Z, 
-    NC, 
+    NONE,
+    NZ,
+    Z,
+    NC,
     C
 };
 
+// ===== INSTRUCTION STRUCTURE =====
 struct Instruction {
     InType type;
     AddrMode mode;
@@ -113,6 +119,17 @@ struct Instruction {
     u8 param;
 };
 
+// ===== INSTRUCTION LOOKUP =====
+/**
+ * @brief Get instruction definition by opcode
+ * @param opcode 8-bit instruction opcode
+ * @return Pointer to instruction definition
+ */
 Instruction* instruction_by_opcode(u8 opcode);
 
+/**
+ * @brief Get instruction name as string
+ * @param t Instruction type
+ * @return String representation of instruction type
+ */
 const char* inst_name(InType t);

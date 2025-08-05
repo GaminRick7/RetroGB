@@ -1,8 +1,10 @@
 #include "cpu.hpp"
 #include "bus.hpp"
-#include "cpu_exec.cpp"
+#include "ppu.hpp"
 #include <cstdio>
 #include <cstring>
+
+#define CPU_DEBUG 0
 
 // Helper function to get register name as string
 static const char* reg_name(RegType reg) {
@@ -123,6 +125,8 @@ static void format_operand(const Instruction* inst, u16 fetched_data, u16 mem_de
     }
 }
 
+// ===== CONSTRUCTORS & DESTRUCTORS =====
+
 CPU::CPU() : bus(nullptr) {
     // Initialize CPU state
 }
@@ -130,6 +134,8 @@ CPU::CPU() : bus(nullptr) {
 CPU::~CPU() {
     // Cleanup if needed
 }
+
+// ===== INITIALIZATION =====
 
 void CPU::init() {
     // Initialize CPU registers and state according to Gameboy Doctor requirements
@@ -160,6 +166,8 @@ void CPU::init() {
     
     printf("CPU: Initialized - PC=0x%04X, SP=0x%04X\n", regs.pc, regs.sp);
 }
+
+// ===== INSTRUCTION FETCHING =====
 
 void CPU::fetch_instruction() {
     if (!bus) {
@@ -347,130 +355,6 @@ void CPU::fetch_data() {
     }
 }
 
-void CPU::emu_cycles(int cycles) {
-    // Empty function for cycle counting
-    // This will be implemented later to track CPU cycles
-    // and synchronize with other components (PPU, timer, etc.)
-
-    int n = cycles * 4;
-
-    for (int i = 0; i < n; i++) {
-        ticks++;
-        timer->tick();
-    }
-}
-
-void CPU::dbg_update() {
-    if (bus->read(0xFF02) == 0x81) {
-        char c = bus->read(0xFF01);
-
-        dbg_msg[msg_size++] = c;
-        bus->write(0xFF02, 0);
-    }
-}
-
-void CPU::dbg_print() {
-    if (dbg_msg[0]) {
-        printf("DBG: %s\n", dbg_msg);
-        
-        // Check if the debug message contains "failed"
-        if (strstr(dbg_msg, "Passed") != nullptr) {
-            printf("CPU: Debug message contains 'failed' - stopping program\n");
-            exit(1);
-        }
-    }
-}
-
-u16 CPU::cpu_read_reg(RegType reg) {
-    switch (reg) {
-        case RegType::A:
-            return regs.a;
-        case RegType::B:
-            return regs.b;
-        case RegType::C:
-            return regs.c;
-        case RegType::D:
-            return regs.d;
-        case RegType::E:
-            return regs.e;
-        case RegType::H:
-            return regs.h;
-        case RegType::L:
-            return regs.l;
-        case RegType::AF:
-            return (regs.a << 8) | regs.f;
-        case RegType::BC:
-            return (regs.b << 8) | regs.c;
-        case RegType::DE:
-            return (regs.d<< 8) | regs.e;
-        case RegType::HL:
-            return (regs.h << 8) | regs.l;
-        case RegType::SP:
-            return regs.sp;
-        case RegType::PC:
-            return regs.pc;
-        case RegType::NONE:
-        default:
-            printf("CPU: Attempted to read from invalid register!\n");
-            return 0;
-    }
-}
-
-void CPU::cpu_set_reg(RegType reg, u16 value) {
-    switch (reg) {
-        case RegType::A:
-            regs.a = value & 0xFF;
-            break;
-        case RegType::B:
-            regs.b = value & 0xFF;
-            break;
-        case RegType::C:
-            regs.c = value & 0xFF;
-            break;
-        case RegType::D:
-            regs.d = value & 0xFF;
-            break;
-        case RegType::E:
-            regs.e = value & 0xFF;
-            break;
-        case RegType::H:
-            regs.h = value & 0xFF;
-            break;
-        case RegType::L:
-            regs.l = value & 0xFF;
-            break;
-        case RegType::F:
-            regs.f = value & 0xFF;
-            break;
-        case RegType::AF:
-            regs.a = (value >> 8) & 0xFF;
-            regs.f = value & 0xF0;  // Clear lower nibble - flags should always be zero
-            break;
-        case RegType::BC:
-            regs.b = (value >> 8) & 0xFF;
-            regs.c = value & 0xFF;
-            break;
-        case RegType::DE:
-            regs.d = (value >> 8) & 0xFF;
-            regs.e = value & 0xFF;
-            break;
-        case RegType::HL:
-            regs.h = (value >> 8) & 0xFF;
-            regs.l = value & 0xFF;
-            break;
-        case RegType::SP:
-            regs.sp = value;
-            break;
-        case RegType::PC:
-            regs.pc = value;
-            break;
-        case RegType::NONE:
-        default:
-            printf("CPU: Attempted to write to invalid register!\n");
-            break;
-    }
-}
-
 void CPU::execute() {
     if (!curr_inst) {
         printf("CPU: No instruction to execute!\n");
@@ -484,11 +368,32 @@ void CPU::execute() {
     }
 }
 
+// ===== CYCLE MANAGEMENT =====
+
+void CPU::emu_cycles(int cycles) {
+    // Empty function for cycle counting
+    // This will be implemented later to track CPU cycles
+    // and synchronize with other components (PPU, timer, etc.)
+
+    for (int i=0; i<cycles; i++) {
+        for (int n=0; n<4; n++) {
+            ticks++;
+            timer->tick();
+            ppu->tick();
+        }
+
+        dma->tick();
+    }
+}
+
+// ===== MAIN EXECUTION =====
+
 bool CPU::step() {
     
     // Gameboy Doctor logging - log CPU state BEFORE instruction execution
         // Only log if CPU is not halted and executed an opcode
         if (!halted) {
+            #if CPU_DEBUG
             // Read 4 bytes from PC for PCMEM
             u8 pcmem0 = bus->read(regs.pc);
             u8 pcmem1 = bus->read(regs.pc + 1);
@@ -500,6 +405,7 @@ bool CPU::step() {
             printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
                     regs.a, regs.f, regs.b, regs.c, regs.d, regs.e, regs.h, regs.l, regs.sp, regs.pc,
                     pcmem0, pcmem1, pcmem2, pcmem3);
+            #endif
         }
         
         // Don't increment PC here - it should be incremented after instruction execution
@@ -510,7 +416,7 @@ bool CPU::step() {
         fetch_instruction();
         emu_cycles(1);
         fetch_data();
-        
+        #if CPU_DEBUG
         // Format the instruction with operands
         char operand_buffer[64];
         format_operand(curr_inst, fetched_data, mem_dest, operand_buffer, sizeof(operand_buffer));
@@ -574,6 +480,8 @@ bool CPU::step() {
         
         dbg_update();
         dbg_print();
+
+        #endif
         execute();
 
     }
@@ -595,108 +503,25 @@ bool CPU::step() {
     return true;  // Continue running instructions
 } 
 
-// Flag helper implementations
+// ===== DEBUG FUNCTIONS =====
 
-void CPU::set_flags(u8 z, u8 n, u8 h, u8 c) {
-    if (z != 0xFF) set_flag(FLAG_Z, z);
-    if (n != 0xFF) set_flag(FLAG_N, n);
-    if (h != 0xFF) set_flag(FLAG_H, h);
-    if (c != 0xFF) set_flag(FLAG_C, c);
-}
+void CPU::dbg_update() {
+    if (bus->read(0xFF02) == 0x81) {
+        char c = bus->read(0xFF01);
 
-void CPU::set_flag(u8 flag, bool value) {
-    if (value)
-        regs.f |= flag;
-    
-    else
-        regs.f &= ~flag;
-}
-
-bool CPU::get_flag(u8 flag) const {
-    return (regs.f & flag) != 0;
-} 
-
-u8 CPU::get_ie_register() const {
-    return ie_register;
-}
-
-void CPU::set_ie_register(u8 value) {
-    ie_register = value;
-} 
-
-void CPU::stack_push(u8 value) {
-    regs.sp--;
-    bus->write(regs.sp, value);
-}
-
-void CPU::stack_push16(u16 value) {
-    stack_push((value >> 8) & 0xFF);
-    stack_push(value & 0xFF);
-}
-
-u8 CPU::stack_pop() {
-    return bus->read(regs.sp++);
-}
-
-u16 CPU::stack_pop16() {
-    u8 lo = stack_pop();
-    u8 hi = stack_pop();
-    return (hi << 8) | lo;  // Combine high and low bytes
-}
-
-u16 CPU::stack_peek() {
-    u8 lo = bus->read(regs.sp);
-    u8 hi = bus->read(regs.sp + 1);
-    return (hi << 8) | lo;
-}
-
-void CPU::set_int_flags(u8 flags) {
-    int_flags = flags;
-}
-
-u8 CPU::get_int_flags() {
-    return int_flags;
-}
-
-void CPU::clear_int_flags() {
-    int_flags = 0;
-}
-
-void CPU::request_interrupt(u8 interrupt_type) {
-    // Set the corresponding interrupt flag
-    int_flags |= interrupt_type;
-}
-void CPU::int_handle(u16 address) {
-    stack_push16(regs.pc);
-    regs.pc = address;
-}
-
-bool CPU::int_check(u16 address, u8 interrupt_type) {
-    if (int_flags & interrupt_type && ie_register & interrupt_type) {
-        int_handle(address);
-        int_flags &= ~interrupt_type;
-        halted = false;
-        ime = false;
-        
-        // Consume cycles for interrupt handling
-        emu_cycles(5);
-        
-        return true;
+        dbg_msg[msg_size++] = c;
+        bus->write(0xFF02, 0);
     }
-    
-    return false;
 }
 
-void CPU::handle_interrupts() {
-    if (int_check(0x40, IT_VBLANK)) {
+void CPU::dbg_print() {
+    if (dbg_msg[0]) {
+        printf("DBG: %s\n", dbg_msg);
         
-    } else if (int_check(0x48, IT_LCD_STAT)) {
-        
-    } else if (int_check(0x50, IT_TIMER)) {
-        
-    } else if (int_check(0x58, IT_SERIAL)) {
-        
-    } else if (int_check(0x60, IT_JOYPAD)) {
-        
+        // Check if the debug message contains "failed"
+        if (strstr(dbg_msg, "Passed") != nullptr) {
+            printf("CPU: Debug message contains 'failed' - stopping program\n");
+            exit(1);
+        }
     }
 }
