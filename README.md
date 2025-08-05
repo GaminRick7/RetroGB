@@ -4,7 +4,7 @@ A cycle-accurate Game Boy (DMG) emulator written in C++ with modern architecture
 
 ## 🎮 Overview
 
-![Zelda Gameplay](screenshots/zelda.png)
+![Zelda Gameplay](screenshots/zelda.gif)
 *Running Tetris with accurate Game Boy graphics and timing*
 
 This emulator implements a complete Game Boy (DMG) system with cycle-accurate timing for a Z80-like processor, proper interrupt handling, and accurate graphics rendering. The project is built with modern C++17 standards and uses SDL2 for cross-platform graphics and input handling.
