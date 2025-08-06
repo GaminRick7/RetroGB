@@ -265,9 +265,56 @@ void Cartridge::setup_banking() {
     rom_bank_x = rom_data + 0x4000;
 }
 
-void Cartridge::battery_load() {}
+void Cartridge::battery_load() {
+    if (!battery) {
+        return;
+    }
 
-void Cartridge::battery_save() {}
+    char fn[1024];
+    sprintf(fn, "%s.battery", filename);
+    FILE *fp = fopen(fn, "rb");
+
+    if (!fp) {
+        return;
+    }
+
+    // Load all RAM banks
+    for (int i = 0; i < 16; i++) {
+        if (ram_banks[i]) {
+            fread(ram_banks[i], 0x2000, 1, fp);
+        }
+    }
+
+    fclose(fp);
+}
+
+void Cartridge::battery_save() {
+    if (!battery) {
+        return;
+    }
+
+    if (!need_save) {
+        return;
+    }
+
+    char fn[1024];
+    sprintf(fn, "%s.battery", filename);
+    FILE *fp = fopen(fn, "wb");
+
+    if (!fp) {
+        return;
+    }
+
+    // Save all RAM banks
+    for (int i = 0; i < 16; i++) {
+        if (ram_banks[i]) {
+            fwrite(ram_banks[i], 0x2000, 1, fp);
+        }
+    }
+
+    fclose(fp);
+    need_save = false;
+}
 
 bool Cartridge::get_need_save() {
     return need_save;
