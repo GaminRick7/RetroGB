@@ -16,7 +16,7 @@ This emulator implements a complete Game Boy (DMG) system with cycle-accurate ti
 The emulator delivers **cycle-accurate Game Boy emulation** through a carefully designed modular architecture:
 
 #### **Cycle-Accurate CPU Emulation**
-- **Complete Z80-like instruction set** with all 8-bit and 16-bit operations including arithmetic, logical, bit manipulation, and control flow instructions
+- **Complete Z80-like instruction set** with all 8-bit and 16-bit operations including arithmetic, logical, bit manipulation, and control flow instructions (e.g., `ADD`, `LD`, `JP`, `CALL`, `RST`)
 - **Precise timing**: Every instruction executes in the exact number of cycles as the original hardware (4.19 MHz clock)
 - **Advanced interrupt system**: V-Blank, LCD Status, Timer, Serial, and Joypad interrupts with proper priority handling and interrupt enable/disable flags
 - **Register architecture**: Full 8-bit registers (A, F, B, C, D, E, H, L) and 16-bit registers (PC, SP) with proper flag handling (Zero, Subtract, Half-carry, Carry)
